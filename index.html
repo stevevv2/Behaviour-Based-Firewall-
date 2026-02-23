@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live SDN Security Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 2em;
+        }
+        .container {
+            max-width: 1400px;
+            margin: auto;
+            background-color: #1e1e1e;
+            padding: 2em;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            text-align: center;
+            color: #ffffff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 0.5em;
+            margin-bottom: 1em;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            text-align: left;
+            padding: 15px;
+            vertical-align: top;
+            border-bottom: 1px solid #333;
+        }
+        thead {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        tbody tr:nth-child(even) { background-color: #2c2c2c; }
+        .status-cell { font-weight: bold; text-align: center; }
+        .status-normal { color: #28a745; }
+        .status-anomaly { color: #dc3545; animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        /* New styling for our named feature list */
+        .features-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            font-family: monospace;
+            font-size: 0.85em;
+            color: #ccc;
+        }
+        .features-list li {
+            padding-bottom: 4px;
+        }
+        .features-list strong {
+            color: #0d6efd; /* Highlight feature names */
+            display: inline-block;
+            min-width: 120px; /* Align values */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SDN Live Traffic Monitor</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Status</th>
+                    <th>Classification</th>
+                    <th>Action Taken</th>
+                    <th>Flow Features</th>
+                </tr>
+            </thead>
+            <tbody id="log-table-body">
+                <!-- Log entries will be inserted here dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- =========== THE JAVASCRIPT LOGIC IS UPDATED HERE =========== -->
+    <script>
+        function updateLogs() {
+            fetch('/get_logs')
+                .then(response => response.json())
+                .then(data => {
+                    const tableBody = document.getElementById("log-table-body");
+                    
+                    if (data.length === 0) {
+                        tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#777; font-style:italic;">Waiting for network traffic...</td></tr>';
+                        return;
+                    }
+                    
+                    tableBody.innerHTML = ''; // Clear old logs
+
+                    data.forEach(log => {
+                        const row = document.createElement('tr');
+                        const isAnomaly = log.anomaly === 'YES';
+                        
+                        const statusClass = isAnomaly ? 'status-anomaly' : 'status-normal';
+                        const statusIcon = isAnomaly ? '🚨 ANOMALY' : '✔️ NORMAL';
+                        
+                        // --- Build a formatted HTML list from the features dictionary ---
+                        let featuresHtml = '<ul class="features-list">';
+                        for (const [key, value] of Object.entries(log.features)) {
+                            // Format numbers to have at most 2 decimal places for readability
+                            const formattedValue = (typeof value === 'number') ? value.toFixed(2) : value;
+                            featuresHtml += `<li><strong>${key}:</strong> ${formattedValue}</li>`;
+                        }
+                        featuresHtml += '</ul>';
+                        
+                        // Populate the table row with the new formatted features
+                        row.innerHTML = `
+                            <td>${log.timestamp}</td>
+                            <td class="status-cell ${statusClass}">${statusIcon}</td>
+                            <td>${log.attack_type}</td>
+                            <td>${log.action}</td>
+                            <td>${featuresHtml}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Error fetching logs:', error));
+        }
+        
+        document.addEventListener('DOMContentLoaded', updateLogs);
+        setInterval(updateLogs, 3000);
+    </script>
+</body>
+</html>
